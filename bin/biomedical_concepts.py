@@ -24,13 +24,15 @@ def process_usdm_biomedical_concepts_to_csv(usdm_file: str, out_file: str):
     references = []
     codes = []
     decodes = []
+    parent_ids = []
 
     version = usdm["study"]["versions"][0]
     bcs = version.get("biomedicalConcepts", [])
     surrogates = version.get("bcSurrogates", [])
 
-    # Extract biomedicalConcepts
+    # Extract biomedicalConcepts and their properties
     for bc in bcs:
+        # Parent concept row
         ids.append(bc.get("id", ""))
         names.append(bc.get("name", ""))
         labels.append(bc.get("label", ""))
@@ -43,6 +45,46 @@ def process_usdm_biomedical_concepts_to_csv(usdm_file: str, out_file: str):
             decode = bc["code"]["standardCode"].get("decode", "")
         codes.append(code)
         decodes.append(decode)
+        parent_ids.append("")
+
+        # Properties as additional rows
+        for prop in bc.get("properties", []):
+            prop_id = prop.get("id", "")
+            ids.append(prop_id)
+            names.append(prop.get("name", ""))
+            labels.append(prop.get("label", ""))
+            synonyms.append("")
+            references.append(prop.get("reference", ""))
+            pcode = ""
+            pdecode = ""
+            if "code" in prop and "standardCode" in prop["code"]:
+                pcode = prop["code"]["standardCode"].get("code", "")
+                pdecode = prop["code"]["standardCode"].get("decode", "")
+            codes.append(pcode)
+            decodes.append(pdecode)
+            parent_ids.append(bc.get("id", ""))
+
+            # Extract ResponseCodes as child rows
+            for rc in prop.get("responseCodes", []):
+                rc_id = rc.get("id", "")
+                ids.append(rc_id)
+                names.append(rc.get("name", ""))
+                labels.append(rc.get("label", ""))
+                synonyms.append("")
+                references.append("")
+                rccode = ""
+                rcdecode = ""
+                if "code" in rc:
+                    if "code" in rc["code"]:
+                        # Nested code object
+                        rccode = rc["code"].get("code", "")
+                        rcdecode = rc["code"].get("decode", "")
+                    else:
+                        rccode = rc["code"].get("code", "")
+                        rcdecode = rc["code"].get("decode", "")
+                codes.append(rccode)
+                decodes.append(rcdecode)
+                parent_ids.append(prop_id)
 
     # Extract bcSurrogates
     for surr in surrogates:
@@ -53,9 +95,11 @@ def process_usdm_biomedical_concepts_to_csv(usdm_file: str, out_file: str):
         references.append(surr.get("reference", ""))
         codes.append("")
         decodes.append("")
+        parent_ids.append("")
 
     concepts = {
         "id": ids,
+        "parent_id": parent_ids,
         "name": names,
         "label": labels,
         "synonyms": synonyms,
@@ -65,7 +109,7 @@ def process_usdm_biomedical_concepts_to_csv(usdm_file: str, out_file: str):
     }
 
     df = pd.DataFrame(concepts)
-    df = df[["id", "name", "label", "synonyms", "reference", "code", "decode"]]
+    df = df[["id", "parent_id", "name", "label", "synonyms", "reference", "code", "decode"]]
     df.to_csv(out_file, index=False)
 
 
