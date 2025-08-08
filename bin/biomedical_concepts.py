@@ -2,53 +2,71 @@ import json
 import pandas as pd
 
 
-usdm_file = "files/usdm_sdw_v4.0.0_amendment.json"
-out_file = "LLZT_BiomedicalConcepts.csv"
+def process_usdm_biomedical_concepts_to_csv(usdm_file: str, out_file: str):
+    """
+    Process a USDM JSON file and output biomedical concepts to a CSV file.
+    Args:
+        usdm_file (str): Path to the input USDM JSON file.
+        out_file (str): Path to the output CSV file.
+    """
+    try:
+        with open(usdm_file, "r") as file:
+            usdm = json.load(file)
+    except FileNotFoundError:
+        print(f"The input JSON file {usdm_file} does not exist")
+        return
 
-try:
-    with open(usdm_file, "r") as file:
-        usdm = json.load(file)
-except FileNotFoundError:
-    print("The input JSON file {} does not exist".format(usdm_file))
+    # Prepare lists for all concepts and surrogates
+    ids = []
+    names = []
+    labels = []
+    synonyms = []
+    references = []
+    codes = []
+    decodes = []
 
-# debug
-# print(usdm.keys())
+    version = usdm["study"]["versions"][0]
+    bcs = version.get("biomedicalConcepts", [])
+    surrogates = version.get("bcSurrogates", [])
 
-ids = []
-names = []
-synonyms = []
-references = []
-codes = []
-decodes = []
+    # Extract biomedicalConcepts
+    for bc in bcs:
+        ids.append(bc.get("id", ""))
+        names.append(bc.get("name", ""))
+        labels.append(bc.get("label", ""))
+        synonyms.append(", ".join(bc.get("synonyms", [])) if bc.get("synonyms") else "")
+        references.append(bc.get("reference", ""))
+        code = ""
+        decode = ""
+        if "code" in bc and "standardCode" in bc["code"]:
+            code = bc["code"]["standardCode"].get("code", "")
+            decode = bc["code"]["standardCode"].get("decode", "")
+        codes.append(code)
+        decodes.append(decode)
 
-bcs = usdm["study"]["versions"][0]["biomedicalConcepts"]
+    # Extract bcSurrogates
+    for surr in surrogates:
+        ids.append(surr.get("id", ""))
+        names.append(surr.get("name", ""))
+        labels.append(surr.get("label", ""))
+        synonyms.append("")
+        references.append(surr.get("reference", ""))
+        codes.append("")
+        decodes.append("")
 
-for b in range(0, len(bcs)):
-    ids.append(bcs[b]["id"])
-    names.append(bcs[b]["name"])
-    synonyms.append(bcs[b]["synonyms"])
-    references.append(bcs[b]["reference"])
-    codes.append(bcs[b]["code"]["standardCode"]["code"])
-    decodes.append(bcs[b]["code"]["standardCode"]["decode"])
+    concepts = {
+        "id": ids,
+        "name": names,
+        "label": labels,
+        "synonyms": synonyms,
+        "reference": references,
+        "code": codes,
+        "decode": decodes,
+    }
 
-# debug
-# print(len(ids))
-# print(len(names))
-# print(len(synonyms))
-# print(len(codes))
-# print(len(decodes))
+    df = pd.DataFrame(concepts)
+    df = df[["id", "name", "label", "synonyms", "reference", "code", "decode"]]
+    df.to_csv(out_file, index=False)
 
-concepts = {
-    "id": ids,
-    "name": names,
-    "synonyms": synonyms,
-    "reference": references,
-    "code": codes,
-    "decode": decodes,
-}
 
-# debug
-# print(concepts.keys())
-
-df = pd.DataFrame(concepts)
-df.to_csv(out_file)
+# All logic is now inside process_usdm_biomedical_concepts_to_csv. No top-level code is needed here.
