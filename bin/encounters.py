@@ -6,23 +6,17 @@ import pandas as pd
 
 # load the JSON file
 # this creates a dictionary
-#usdm = "data/CDISC_Pilot_Study.json" #invalid USDM file
-usdm = "data/usdm.json"
+# usdm = "data/CDISC_Pilot_Study.json" #invalid USDM file
+usdm = "files/usdm_sdw_v4.0.0_amendment.json"
 with open(usdm) as f:
     data = json.load(f)
 
 
-
 # create a list of encounters
-encounters = data['study']['versions'][0]['studyDesigns'][0]['encounters']
+encounters = data["study"]["versions"][0]["studyDesigns"][0]["encounters"]
 
 # print encounter
 i = 0
 for i in range(0, len(encounters)):
-    print('Encounter Name: ', encounters[i]['name'])
-    print('Encounter Label: ', encounters[i]['label'])
-
-
-
-
-
+    print("Encounter Name: ", encounters[i]["name"])
+    print("Encounter Label: ", encounters[i]["label"])
