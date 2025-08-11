@@ -20,4 +20,9 @@ python bin/run_create_te_csv.py --usdm_file files/usdm_sdw_v4.0.0_amendment.json
 python bin/run_create_tv_csv.py --usdm_file files/usdm_sdw_v4.0.0_amendment.json --output_file output/TV.CSV
 ```
 
+### TI Domain
+```
+python bin/run_create_ti_csv.py --usdm_file files/usdm_sdw_v4.0.0_amendment.json --output_file output/TI.CSV
+```
+
 You can override the input or output file paths using the `--usdm_file` and `--output_file` arguments.
