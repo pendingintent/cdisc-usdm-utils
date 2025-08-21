@@ -11,15 +11,17 @@ DEFINE_XML_PATH = "define.xml"
 STYLESHEET_PATH = "Define/stylesheets/define2-1.xsl"
 SCHEMA_PATH = "Define/schema/cdisc-define-2.1/define2-1-0.xsd"
 
+
 # Helper to parse CSV columns
 def parse_csv_metadata(domain):
     path = os.path.join(OUTPUT_DIR, f"{domain}.CSV")
     if not os.path.exists(path):
         return None
-    with open(path, newline='') as f:
+    with open(path, newline="") as f:
         reader = csv.DictReader(f)
         columns = reader.fieldnames
     return columns
+
 
 # Helper to get study info from USDM
 def get_study_metadata():
@@ -30,14 +32,16 @@ def get_study_metadata():
     title = study_version.get("titles", [{}])[0].get("text", "")
     return study_id, title
 
+
 # Main XML generation
+
 
 def main():
     study_id, title = get_study_metadata()
     creation_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    
+
     # Start XML (basic structure)
-    xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="{STYLESHEET_PATH}"?>
 <ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:def="http://www.cdisc.org/ns/def/v2.1"
   ODMVersion="1.3.2"
@@ -56,7 +60,7 @@ def main():
     </GlobalVariables>
   </Study>
   <MetaDataVersion OID="MDV.{study_id}.01" Name="SDTM Metadata" def:DefineVersion="2.1.0" def:StandardName="SDTM" def:StandardVersion="3.3">
-'''
+"""
     # Add ItemGroupDef for each domain
     for domain in SDTM_DOMAINS:
         columns = parse_csv_metadata(domain)
@@ -65,7 +69,7 @@ def main():
         xml += f'    <ItemGroupDef OID="IG.{domain}" Name="{domain}" Repeating="No" IsReferenceData="No" Domain="{domain}">\n'
         for col in columns:
             xml += f'      <ItemRef ItemOID="IT.{domain}.{col}" OrderNumber="1" Mandatory="Yes" KeySequence="1"/>\n'
-        xml += f'    </ItemGroupDef>\n'
+        xml += f"    </ItemGroupDef>\n"
         # Add ItemDef for each column
         for col in columns:
             xml += f'    <ItemDef OID="IT.{domain}.{col}" Name="{col}" DataType="text" Length="200"/>\n'
@@ -77,25 +81,30 @@ def main():
             old_xml = f.read()
         # Extract all <def:ValueListDef>, <def:WhereClauseDef>, <def:Standards>, <def:SupplementalDoc>, <CodeList>, <def:CommentDef>, <def:leaf>, etc.
         import re
+
         # Find all relevant metadata blocks
-        blocks = re.findall(r'(\s*<(def:ValueListDef|def:WhereClauseDef|def:Standards|def:SupplementalDoc|CodeList|def:CommentDef|def:leaf)[\s\S]*?</\2>\s*)', old_xml)
+        blocks = re.findall(
+            r"(\s*<(def:ValueListDef|def:WhereClauseDef|def:Standards|def:SupplementalDoc|CodeList|def:CommentDef|def:leaf)[\s\S]*?</\2>\s*)",
+            old_xml,
+        )
         for block, _ in blocks:
             xml += block + "\n"
         # Also copy any <def:leaf> and <def:Class> blocks
-        leaf_blocks = re.findall(r'(\s*<def:leaf[\s\S]*?</def:leaf>\s*)', old_xml)
+        leaf_blocks = re.findall(r"(\s*<def:leaf[\s\S]*?</def:leaf>\s*)", old_xml)
         for block in leaf_blocks:
             xml += block + "\n"
-        class_blocks = re.findall(r'(\s*<def:Class[\s\S]*?</def:Class>\s*)', old_xml)
+        class_blocks = re.findall(r"(\s*<def:Class[\s\S]*?</def:Class>\s*)", old_xml)
         for block in class_blocks:
             xml += block + "\n"
     # --- End merge ---
 
     # Close MetaDataVersion and ODM
-    xml += '  </MetaDataVersion>\n</ODM>\n'
+    xml += "  </MetaDataVersion>\n</ODM>\n"
     # Write to file
     with open(DEFINE_XML_PATH, "w") as f:
         f.write(xml)
     print(f"define.xml generated at {DEFINE_XML_PATH}")
+
 
 if __name__ == "__main__":
     main()
