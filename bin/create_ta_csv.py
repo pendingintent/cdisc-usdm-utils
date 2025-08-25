@@ -1,9 +1,21 @@
 import csv
 import json
+import datetime
+import os
+import re
 
 # Define the output columns
 COLUMNS = [
-    "STUDYID","DOMAIN","ARMCD","ARM","TAETORD","ETCD","ELEMENT","TABRANCH","TATRANS","EPOCH"
+    "STUDYID",
+    "DOMAIN",
+    "ARMCD",
+    "ARM",
+    "TAETORD",
+    "ETCD",
+    "ELEMENT",
+    "TABRANCH",
+    "TATRANS",
+    "EPOCH",
 ]
 
 # Map columns to USDM Path and Attribute from the spec
@@ -17,37 +29,43 @@ USDM_PATHS = {
     "ELEMENT": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.elements.StudyElement.description",
     "TABRANCH": "study.studyVersion.studyDesigns.studyDesign.scheduleTimelines.ScheduleTimeline.instances.ScheduledDecisionInstance.conditionAssignments",
     "TATRANS": "study.studyVersion.studyDesigns.studyDesign.scheduleTimelines.ScheduleTimeline.instances.ScheduledDecisionInstance.conditionAssignments",
-    "EPOCH": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.epoch.StudyEpoch.name"
+    "EPOCH": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.epoch.StudyEpoch.name",
 }
+
 
 # Helper to safely get nested values from dicts/lists
 def get_nested(data, path):
-    keys = path.split('.')
+    keys = path.split(".")
     for key in keys:
         if isinstance(data, list):
             try:
                 data = data[0]
             except IndexError:
-                return ''
+                return ""
         if isinstance(data, dict):
-            data = data.get(key, '')
+            data = data.get(key, "")
         else:
-            return ''
-    return data if not isinstance(data, (dict, list)) else ''
+            return ""
+    return data if not isinstance(data, (dict, list)) else ""
+
 
 # Main function
 
+
 def main(usdm_file, output_file):
+
     with open(usdm_file) as f:
         usdm = json.load(f)
 
     study_version = usdm["study"]["versions"][0]
-    study_id = ''
+    study_id = ""
     if "studyIdentifiers" in study_version and study_version["studyIdentifiers"]:
         study_id = study_version["studyIdentifiers"][0].get("text", "")
 
     # Get studyDesign and referenced lists
-    study_design = study_version["studyDesigns"][0] if study_version.get("studyDesigns") else {}
+    study_design = (
+        study_version["studyDesigns"][0] if study_version.get("studyDesigns") else {}
+    )
     arms = {arm["id"]: arm for arm in study_design.get("arms", [])}
     epochs = {epoch["id"]: epoch for epoch in study_design.get("epochs", [])}
     elements = {el["id"]: el for el in study_design.get("elements", [])}
@@ -74,15 +92,68 @@ def main(usdm_file, output_file):
                 "ELEMENT": element.get("description", ""),
                 "TABRANCH": "",
                 "TATRANS": "",
-                "EPOCH": epoch.get("name", "")
+                "EPOCH": epoch.get("name", ""),
             }
             rows.append(row)
 
-    with open(output_file, 'w', newline='') as csvfile:
+    # Write CSV
+    with open(output_file, "w", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=COLUMNS)
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
 
+    # --- Generate Dataset-JSON ---
+
+    # Load schema for columns
+    schema_path = os.path.join("files", "dataset.schema.json")
+    with open(schema_path) as f:
+        schema = json.load(f)
+    # Find TA columns in schema
+    # If schema has a columns array, use it; else, fallback to COLUMNS
+    schema_columns = []
+    if "columns" in schema:
+        for col in schema["columns"]:
+            if col.get("name") in COLUMNS:
+                schema_columns.append(col)
+    elif "$defs" in schema and "Column" in schema["$defs"]:
+        # Fallback: build from COLUMNS
+        for colname in COLUMNS:
+            schema_columns.append(
+                {
+                    "name": colname,
+                    "label": colname,
+                    "dataType": "string",
+                    "itemOID": f"IT.TA.{colname}",
+                }
+            )
+
+    # Build Dataset-JSON structure
+    dataset_json = {
+        "datasetJSONCreationDateTime": datetime.datetime.now().strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        ),
+        "datasetJSONVersion": "1.1",
+        "itemGroupOID": "IG.TA",
+        "records": len(rows),
+        "name": "TA",
+        "label": "Trial Arms",
+        "columns": schema_columns,
+        "rows": [],
+        "originator": "cdisc-usdm-utils",
+        "studyOID": study_id,
+        "sourceSystem": {"name": "cdisc-usdm-utils", "version": "1.0"},
+    }
+    # Add row data as arrays in column order
+    for row in rows:
+        dataset_json["rows"].append([row[col] for col in COLUMNS])
+
+    # Write Dataset-JSON file
+    json_path = re.sub(r"\.csv$", ".dataset.json", output_file, flags=re.IGNORECASE)
+    with open(json_path, "w") as jf:
+        json.dump(dataset_json, jf, indent=2)
+    print(f"TA.CSV and TA.dataset.json generated.")
+
+
 if __name__ == "__main__":
-    main('files/usdm_sdw_v4.0.0_amendment.json', 'output/TA.CSV')
+    main("files/usdm_sdw_v4.0.0_amendment.json", "output/TA.CSV")
