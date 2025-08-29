@@ -19,6 +19,7 @@ fi
 if command -v usdm-utils >/dev/null 2>&1; then
   CMD=(usdm-utils)
 else
+  export PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}"
   CMD=(python -m cdisc_usdm_utils.cli)
 fi
 
