@@ -2,10 +2,12 @@ import csv
 import json
 import os
 import datetime
+import re
 from cdisc_usdm_utils.validation import (
     validate_dataset_json,
     write_validation_report,
     validate_against_jsonschema,
+    get_dataset_schema_path,
 )
 
 COLUMNS = ["STUDYID", "DOMAIN", "ETCD", "ELEMENT", "TESTRL", "TEENRL", "TEDUR"]
@@ -26,7 +28,6 @@ def generate(usdm_file: str, output_file: str):
     elements = study_design.get("elements", [])
 
     rows = []
-    import re
 
     for element in elements:
         testrl = (element.get("transitionStartRule") or {}).get("text", "")
@@ -56,7 +57,7 @@ def generate(usdm_file: str, output_file: str):
             writer.writerow(row)
 
     # Dataset-JSON
-    schema_path = os.path.join("files", "dataset.schema.json")
+    schema_path = get_dataset_schema_path()
     with open(schema_path) as f:
         schema = json.load(f)
     schema_columns = []
@@ -99,7 +100,7 @@ def generate(usdm_file: str, output_file: str):
         report = write_validation_report(json_path, problems)
         print(f"[TE] Dataset-JSON validation found issues. See {report}")
     schema_ok, schema_problems = validate_against_jsonschema(
-        dataset_json, os.path.join("files", "dataset.schema.json")
+        dataset_json, get_dataset_schema_path()
     )
     if not schema_ok and schema_problems:
         report = write_validation_report(json_path + ".schema", schema_problems)

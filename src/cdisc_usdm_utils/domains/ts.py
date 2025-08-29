@@ -4,10 +4,12 @@ import pandas as pd
 import datetime
 import os
 import re
+from typing import Optional
 from cdisc_usdm_utils.validation import (
     validate_dataset_json,
     write_validation_report,
     validate_against_jsonschema,
+    get_dataset_schema_path,
 )
 from pathlib import Path
 
@@ -38,8 +40,8 @@ def _load_tsparm_spec(tsparm_spec_file: str):
 def generate(
     usdm_file: str,
     output_file: str,
-    ts_spec_file: str | None = None,
-    tsparm_spec_file: str | None = None,
+    ts_spec_file: Optional[str] = None,
+    tsparm_spec_file: Optional[str] = None,
 ):
     # TS spec currently unused; TSPARM spec required for mapping
     if tsparm_spec_file is None:
@@ -169,7 +171,7 @@ def generate(
             writer.writerow(row)
 
     # Dataset-JSON
-    schema_path = os.path.join("files", "dataset.schema.json")
+    schema_path = get_dataset_schema_path()
     with open(schema_path) as f:
         schema = json.load(f)
     schema_columns = []
@@ -212,7 +214,7 @@ def generate(
         report = write_validation_report(json_path, problems)
         print(f"[TS] Dataset-JSON validation found issues. See {report}")
     schema_ok, schema_problems = validate_against_jsonschema(
-        dataset_json, os.path.join("files", "dataset.schema.json")
+        dataset_json, get_dataset_schema_path()
     )
     if not schema_ok and schema_problems:
         report = write_validation_report(json_path + ".schema", schema_problems)

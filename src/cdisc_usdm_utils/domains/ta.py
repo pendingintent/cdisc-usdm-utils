@@ -8,6 +8,7 @@ from cdisc_usdm_utils.validation import (
     validate_dataset_json,
     write_validation_report,
     validate_against_jsonschema,
+    get_dataset_schema_path,
 )
 
 COLUMNS = [
@@ -73,7 +74,7 @@ def generate(usdm_file: str, output_file: str):
         for row in rows:
             writer.writerow(row)
 
-    schema_path = os.path.join("files", "dataset.schema.json")
+    schema_path = get_dataset_schema_path()
     with open(schema_path) as f:
         schema = json.load(f)
 
@@ -121,7 +122,7 @@ def generate(usdm_file: str, output_file: str):
         print(f"[TA] Dataset-JSON validation found issues. See {report}")
     # JSON Schema validation (optional, requires jsonschema)
     schema_ok, schema_problems = validate_against_jsonschema(
-        dataset_json, os.path.join("files", "dataset.schema.json")
+        dataset_json, get_dataset_schema_path()
     )
     if not schema_ok and schema_problems:
         report = write_validation_report(json_path + ".schema", schema_problems)

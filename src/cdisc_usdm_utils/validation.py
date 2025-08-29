@@ -107,3 +107,13 @@ def validate_against_jsonschema(
         return False, problems
     except Exception as e:
         return False, [f"Validation runtime error: {e}"]
+
+
+def get_dataset_schema_path() -> str:
+    """
+    Return the default path to the Dataset-JSON v1.1 schema used for validation.
+
+    Centralizing this avoids duplicating the literal 'files/dataset.schema.json'
+    across modules and makes future changes trivial.
+    """
+    return os.path.join("files", "dataset.schema.json")

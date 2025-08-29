@@ -2,7 +2,10 @@ import csv
 import json
 import datetime
 import os
+from cdisc_usdm_utils.validation import get_dataset_schema_path
 import re
+import sys
+import warnings
 
 # Define the output columns
 COLUMNS = [
@@ -49,10 +52,26 @@ def get_nested(data, path):
     return data if not isinstance(data, (dict, list)) else ""
 
 
+def _emit_deprecation_warning():
+    msg = (
+        "DEPRECATED: bin/create_ta_csv.py will be removed in a future release.\n"
+        "Use the unified CLI instead:\n"
+        "  python -m cdisc_usdm_utils.cli sdtm one --domain TA --usdm-file <USDM_JSON> --out-dir <OUT_DIR>\n"
+    )
+    try:
+        warnings.simplefilter("default", DeprecationWarning)
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+    except Exception:
+        pass
+    try:
+        print(msg, file=sys.stderr)
+    except Exception:
+        pass
+
+
 # Main function
-
-
 def main(usdm_file, output_file):
+    _emit_deprecation_warning()
 
     with open(usdm_file) as f:
         usdm = json.load(f)
@@ -106,7 +125,7 @@ def main(usdm_file, output_file):
     # --- Generate Dataset-JSON ---
 
     # Load schema for columns
-    schema_path = os.path.join("files", "dataset.schema.json")
+    schema_path = get_dataset_schema_path()
     with open(schema_path) as f:
         schema = json.load(f)
     # Find TA columns in schema
@@ -156,4 +175,5 @@ def main(usdm_file, output_file):
 
 
 if __name__ == "__main__":
+    _emit_deprecation_warning()
     main("files/pilot_LLZT_protocol.json", "output/TA.CSV")

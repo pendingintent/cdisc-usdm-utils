@@ -3,7 +3,7 @@
 # cdisc-usdm-utils
 This repo holds utilities relating to USDM activities
 # cdisc-usdm-utils
-Utilities to generate SDTM domain outputs (CSV + Dataset-JSON v1.1), Define-XML, and XPT files from USDM.
+Utilities to generate SDTM domain outputs (CSV + Dataset-JSON v1.1), and XPT files from USDM.
 
 ## Quick start
 
