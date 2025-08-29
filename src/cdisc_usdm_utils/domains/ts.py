@@ -53,9 +53,12 @@ def generate(
             "files/SDTM Terminology.xls", header=None, usecols=[0, 1], dtype=str
         )
         terminology.columns = ["code", "codelist_code"]
-    except Exception:
+    except FileNotFoundError:
         terminology = pd.DataFrame(columns=["code", "codelist_code"])  # not used yet
-
+    except pd.errors.ExcelFileError:
+        terminology = pd.DataFrame(columns=["code", "codelist_code"])  # not used yet
+    except pd.errors.EmptyDataError:
+        terminology = pd.DataFrame(columns=["code", "codelist_code"])  # not used yet
     with open(usdm_file) as f:
         usdm = json.load(f)
 
