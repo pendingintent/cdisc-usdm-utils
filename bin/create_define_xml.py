@@ -5,17 +5,19 @@ from datetime import datetime
 
 # Paths
 SDTM_DOMAINS = ["TA", "TE", "TI", "TS", "TV"]
-OUTPUT_DIR = "output"
-USDM_FILE = "files/usdm_sdw_v4.0.0_amendment.json"
-DEFINE_XML_PATH = "define.xml"
 STYLESHEET_PATH = "Define/stylesheets/define2-1.xsl"
 SCHEMA_PATH = "Define/schema/cdisc-define-2.1/define2-1-0.xsd"
 
 
 # Helper to parse CSV columns
-def parse_csv_metadata(domain):
-    path = os.path.join(OUTPUT_DIR, f"{domain}.CSV")
-    if not os.path.exists(path):
+def parse_csv_metadata(domain: str, output_dir: str):
+    # Prefer lower-case extension (project default), fallback to legacy upper-case
+    candidates = [
+        os.path.join(output_dir, f"{domain}.csv"),
+        os.path.join(output_dir, f"{domain}.CSV"),
+    ]
+    path = next((p for p in candidates if os.path.exists(p)), None)
+    if not path:
         return None
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
@@ -24,8 +26,8 @@ def parse_csv_metadata(domain):
 
 
 # Helper to get study info from USDM
-def get_study_metadata():
-    with open(USDM_FILE) as f:
+def get_study_metadata(usdm_file: str):
+    with open(usdm_file) as f:
         usdm = json.load(f)
     study_version = usdm["study"]["versions"][0]
     study_id = study_version.get("studyIdentifiers", [{}])[0].get("text", "")
@@ -36,9 +38,11 @@ def get_study_metadata():
 # Main XML generation
 
 
-def main():
-    study_id, title = get_study_metadata()
+def generate_define(usdm_file: str, output_dir: str) -> str:
+    os.makedirs(output_dir, exist_ok=True)
+    study_id, title = get_study_metadata(usdm_file)
     creation_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    define_xml_path = os.path.join(output_dir, "define.xml")
 
     # Start XML (basic structure)
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -59,11 +63,11 @@ def main():
       <ProtocolName>{study_id}</ProtocolName>
     </GlobalVariables>
   </Study>
-  <MetaDataVersion OID="MDV.{study_id}.01" Name="SDTM Metadata" def:DefineVersion="2.1.0" def:StandardName="SDTM" def:StandardVersion="3.3">
+    <MetaDataVersion OID="MDV.{study_id}.01" Name="SDTM Metadata" def:DefineVersion="2.1.0" def:StandardName="SDTM" def:StandardVersion="3.3">
 """
     # Add ItemGroupDef for each domain
     for domain in SDTM_DOMAINS:
-        columns = parse_csv_metadata(domain)
+        columns = parse_csv_metadata(domain, output_dir)
         if not columns:
             continue
         xml += f'    <ItemGroupDef OID="IG.{domain}" Name="{domain}" Repeating="No" IsReferenceData="No" Domain="{domain}">\n'
@@ -101,9 +105,25 @@ def main():
     # Close MetaDataVersion and ODM
     xml += "  </MetaDataVersion>\n</ODM>\n"
     # Write to file
-    with open(DEFINE_XML_PATH, "w") as f:
+    with open(define_xml_path, "w") as f:
         f.write(xml)
-    print(f"define.xml generated at {DEFINE_XML_PATH}")
+    print(f"define.xml generated at {define_xml_path}")
+    return define_xml_path
+
+
+def main():
+    """Backward-compatible entrypoint: optional CLI args, defaults to project conventions."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Generate Define-XML from SDTM outputs and USDM JSON"
+    )
+    parser.add_argument(
+        "--usdm-file", required=False, default="files/pilot_LLZT_protocol.json"
+    )
+    parser.add_argument("--out-dir", required=False, default="output")
+    args = parser.parse_args()
+    generate_define(args.usdm_file, args.out_dir)
 
 
 if __name__ == "__main__":

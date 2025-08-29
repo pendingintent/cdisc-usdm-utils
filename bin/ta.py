@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 
-in_file = "files/usdm_sdw_v4.0.0_amendment.json"
+in_file = "files/pilot_LLZT_protocol.json"
 out_file = "TDD/TA.csv"
 
 try:

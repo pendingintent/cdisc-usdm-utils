@@ -1,0 +1,2 @@
+[console_scripts]
+usdm-utils = cdisc_usdm_utils.cli:main

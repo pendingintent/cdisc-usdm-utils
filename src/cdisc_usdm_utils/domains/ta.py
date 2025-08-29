@@ -3,8 +3,13 @@ import json
 import datetime
 import os
 import re
+from pathlib import Path
+from cdisc_usdm_utils.validation import (
+    validate_dataset_json,
+    write_validation_report,
+    validate_against_jsonschema,
+)
 
-# Define the output columns
 COLUMNS = [
     "STUDYID",
     "DOMAIN",
@@ -18,42 +23,8 @@ COLUMNS = [
     "EPOCH",
 ]
 
-# Map columns to USDM Path and Attribute from the spec
-USDM_PATHS = {
-    "STUDYID": "study.studyVersion.studyIdentifier.studyIdentifier",
-    "DOMAIN": None,  # Set to 'TA'
-    "ARMCD": "study.studyVersion.studyDesigns.studyDesign.arms.StudyArm.name",
-    "ARM": "study.studyVersion.studyDesigns.studyDesign.arms.StudyArm.description",
-    "TAETORD": None,  # Derived, see spec
-    "ETCD": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.elements.StudyElement.name",
-    "ELEMENT": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.elements.StudyElement.description",
-    "TABRANCH": "study.studyVersion.studyDesigns.studyDesign.scheduleTimelines.ScheduleTimeline.instances.ScheduledDecisionInstance.conditionAssignments",
-    "TATRANS": "study.studyVersion.studyDesigns.studyDesign.scheduleTimelines.ScheduleTimeline.instances.ScheduledDecisionInstance.conditionAssignments",
-    "EPOCH": "study.studyVersion.studyDesigns.studyDesign.studyCells.StudyCell.epoch.StudyEpoch.name",
-}
 
-
-# Helper to safely get nested values from dicts/lists
-def get_nested(data, path):
-    keys = path.split(".")
-    for key in keys:
-        if isinstance(data, list):
-            try:
-                data = data[0]
-            except IndexError:
-                return ""
-        if isinstance(data, dict):
-            data = data.get(key, "")
-        else:
-            return ""
-    return data if not isinstance(data, (dict, list)) else ""
-
-
-# Main function
-
-
-def main(usdm_file, output_file):
-
+def generate(usdm_file: str, output_file: str):
     with open(usdm_file) as f:
         usdm = json.load(f)
 
@@ -62,7 +33,6 @@ def main(usdm_file, output_file):
     if "studyIdentifiers" in study_version and study_version["studyIdentifiers"]:
         study_id = study_version["studyIdentifiers"][0].get("text", "")
 
-    # Get studyDesign and referenced lists
     study_design = (
         study_version["studyDesigns"][0] if study_version.get("studyDesigns") else {}
     )
@@ -96,28 +66,23 @@ def main(usdm_file, output_file):
             }
             rows.append(row)
 
-    # Write CSV
+    Path(os.path.dirname(output_file) or ".").mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=COLUMNS)
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
 
-    # --- Generate Dataset-JSON ---
-
-    # Load schema for columns
     schema_path = os.path.join("files", "dataset.schema.json")
     with open(schema_path) as f:
         schema = json.load(f)
-    # Find TA columns in schema
-    # If schema has a columns array, use it; else, fallback to COLUMNS
+
     schema_columns = []
     if "columns" in schema:
         for col in schema["columns"]:
             if col.get("name") in COLUMNS:
                 schema_columns.append(col)
     elif "$defs" in schema and "Column" in schema["$defs"]:
-        # Fallback: build from COLUMNS
         for colname in COLUMNS:
             schema_columns.append(
                 {
@@ -128,7 +93,6 @@ def main(usdm_file, output_file):
                 }
             )
 
-    # Build Dataset-JSON structure
     dataset_json = {
         "datasetJSONCreationDateTime": datetime.datetime.now().strftime(
             "%Y-%m-%dT%H:%M:%S"
@@ -144,16 +108,23 @@ def main(usdm_file, output_file):
         "studyOID": study_id,
         "sourceSystem": {"name": "cdisc-usdm-utils", "version": "1.0"},
     }
-    # Add row data as arrays in column order
     for row in rows:
         dataset_json["rows"].append([row[col] for col in COLUMNS])
 
-    # Write Dataset-JSON file
     json_path = re.sub(r"\.csv$", ".dataset.json", output_file, flags=re.IGNORECASE)
     with open(json_path, "w") as jf:
         json.dump(dataset_json, jf, indent=2)
-    print(f"TA.CSV and TA.dataset.json generated.")
 
+    ok, problems = validate_dataset_json(dataset_json, "TA", COLUMNS)
+    if not ok:
+        report = write_validation_report(json_path, problems)
+        print(f"[TA] Dataset-JSON validation found issues. See {report}")
+    # JSON Schema validation (optional, requires jsonschema)
+    schema_ok, schema_problems = validate_against_jsonschema(
+        dataset_json, os.path.join("files", "dataset.schema.json")
+    )
+    if not schema_ok and schema_problems:
+        report = write_validation_report(json_path + ".schema", schema_problems)
+        print(f"[TA] JSON Schema validation issues. See {report}")
 
-if __name__ == "__main__":
-    main("files/pilot_LLZT_protocol.json", "output/TA.CSV")
+    return output_file, json_path

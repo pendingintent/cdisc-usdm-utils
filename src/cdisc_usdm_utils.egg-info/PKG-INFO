@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: cdisc-usdm-utils
+Version: 0.1.0
+Summary: Utilities to generate SDTM outputs, Define-XML, and XPT from USDM
+Author: pendingintent
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: click>=8.1
+Dynamic: license-file

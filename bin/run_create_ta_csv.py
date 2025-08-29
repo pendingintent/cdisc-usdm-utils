@@ -1,16 +1,8 @@
-import argparse
-from create_ta_csv import main
+import sys
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate TA.CSV from USDM JSON.")
-    parser.add_argument(
-        "--usdm_file", type=str, required=True, help="Path to the USDM JSON file."
+    print(
+        "[DEPRECATED] Use the CLI instead: usdm-utils sdtm one TA --usdm-file <USDM.json> --out-dir output",
+        file=sys.stderr,
     )
-    parser.add_argument(
-        "--output_file",
-        type=str,
-        default="output/TA.CSV",
-        help="Path to the output TA.CSV file.",
-    )
-    args = parser.parse_args()
-    main(args.usdm_file, args.output_file)
+    sys.exit(1)

@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "smoke: sdtm all (pilot_LLZT_protocol)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["scripts/smoke_sdtm.sh"],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
