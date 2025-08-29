@@ -1,7 +1,8 @@
+[![Smoke SDTM](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml/badge.svg)](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml)
+
 # cdisc-usdm-utils
 This repo holds utilities relating to USDM activities
 # cdisc-usdm-utils
-[![Smoke SDTM](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml/badge.svg)](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml)
 Utilities to generate SDTM domain outputs (CSV + Dataset-JSON v1.1), Define-XML, and XPT files from USDM.
 
 ## Quick start
