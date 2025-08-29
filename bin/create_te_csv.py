@@ -1,49 +1,38 @@
-import csv
-import json
+"""Deprecated shim. Use cdisc_usdm_utils.domains.te instead."""
 
-COLUMNS = [
-    "STUDYID","DOMAIN","ETCD","ELEMENT","TESTRL","TEENRL","TEDUR"
-]
+import sys
+import warnings
+from cdisc_usdm_utils.domains.te import generate
+
+
+def _emit_deprecation_warning():
+    msg = (
+        "DEPRECATED: bin/create_te_csv.py will be removed in a future release.\n"
+        "Use the unified CLI instead:\n"
+        "  python -m cdisc_usdm_utils.cli sdtm one --domain TE --usdm-file <USDM_JSON> --out-dir <OUT_DIR>\n"
+    )
+    try:
+        warnings.simplefilter("default", DeprecationWarning)
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+    except Exception:
+        pass
+    try:
+        print(msg, file=sys.stderr)
+    except Exception:
+        pass
+
 
 def main(usdm_file, output_file):
-    with open(usdm_file) as f:
-        usdm = json.load(f)
+    _emit_deprecation_warning()
+    return generate(usdm_file, output_file)
 
-    study_version = usdm["study"]["versions"][0]
-    study_id = ''
-    if "studyIdentifiers" in study_version and study_version["studyIdentifiers"]:
-        study_id = study_version["studyIdentifiers"][0].get("text", "")
-
-    study_design = study_version["studyDesigns"][0] if study_version.get("studyDesigns") else {}
-    elements = study_design.get("elements", [])
-
-    rows = []
-    import re
-    for element in elements:
-        testrl = (element.get("transitionStartRule") or {}).get("text", "")
-        teenrl = (element.get("transitionEndRule") or {}).get("text", "")
-        # Remove non-breaking spaces and other special whitespace
-        testrl = re.sub(r'[\u00A0\u200B\u202F\uFEFF]', ' ', testrl)
-        teenrl = re.sub(r'[\u00A0\u200B\u202F\uFEFF]', ' ', teenrl)
-        # Remove all double quotes and strip whitespace
-        testrl = testrl.replace('"', '').strip()
-        teenrl = teenrl.replace('"', '').strip()
-        row = {
-            "STUDYID": study_id,
-            "DOMAIN": "TE",
-            "ETCD": element.get("name", ""),
-            "ELEMENT": element.get("description", ""),
-            "TESTRL": testrl,
-            "TEENRL": teenrl,
-            "TEDUR": ""  # Not implemented: requires scheduleTimelines traversal
-        }
-        rows.append(row)
-
-    with open(output_file, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=COLUMNS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
 
 if __name__ == "__main__":
-    main('files/usdm_sdw_v4.0.0_amendment.json', 'output/TE.CSV')
+    import argparse
+
+    _emit_deprecation_warning()
+    parser = argparse.ArgumentParser(description="Create TE dataset from USDM JSON.")
+    parser.add_argument("usdm_file", help="Input USDM JSON file")
+    parser.add_argument("output_file", help="Output TE CSV file")
+    args = parser.parse_args()
+    main(args.usdm_file, args.output_file)

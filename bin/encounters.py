@@ -7,7 +7,7 @@ import pandas as pd
 # load the JSON file
 # this creates a dictionary
 # usdm = "data/CDISC_Pilot_Study.json" #invalid USDM file
-usdm = "files/usdm_sdw_v4.0.0_amendment.json"
+usdm = "files/pilot_LLZT_protocol.json"
 with open(usdm) as f:
     data = json.load(f)
 

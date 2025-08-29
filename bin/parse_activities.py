@@ -2,7 +2,7 @@ import pandas as pd
 import json
 
 
-usdm = "files/usdm_sdw_v4.0.0_amendment.json"
+usdm = "files/pilot_LLZT_protocol.json"
 out = "output/activities.csv"
 
 
