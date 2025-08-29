@@ -4,9 +4,7 @@ from typing import List, Tuple
 import json
 import os
 
-try:
-    from jsonschema import Draft7Validator
-except Exception:  # jsonschema may not be installed yet
+except (ImportError, ModuleNotFoundError):  # jsonschema may not be installed yet
     Draft7Validator = None  # type: ignore
 
 
