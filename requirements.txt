@@ -1,6 +1,5 @@
 attrs==25.3.0
 black==25.1.0
--e git+https://github.com/pendingintent/cdisc-usdm-utils.git@7a8bc2aa9c47201ee81d88bab0464b614f2d6388#egg=cdisc_usdm_utils
 click==8.2.1
 jsonata-python==0.5.3
 jsonschema==4.25.1
