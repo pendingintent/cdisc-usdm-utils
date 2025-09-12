@@ -1,8 +1,11 @@
 [![Smoke SDTM](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml/badge.svg)](https://github.com/pendingintent/cdisc-usdm-utils/actions/workflows/smoke.yml)
 
 # cdisc-usdm-utils
+
 This repo holds utilities relating to USDM activities
+
 # cdisc-usdm-utils
+
 Utilities to generate SDTM domain outputs (CSV + Dataset-JSON v1.1), and XPT files from USDM.
 
 ## Quick start
@@ -35,15 +38,18 @@ usdm-utils sdtm one TA --usdm-file files/pilot_LLZT_protocol.json --out-dir outp
 ```
 
 Outputs:
+
 - CSV: `output/<DOMAIN>.csv`
 - Dataset-JSON v1.1: `output/<DOMAIN>.dataset.json`
 
 Validation:
+
 - A lightweight structural check runs for every Dataset-JSON.
 - If `files/dataset.schema.json` is present, JSON Schema validation runs too.
 - Any problems are written next to the JSON as `*.errors.txt` and/or `*.schema.errors.txt`.
 
 Notes for TS:
+
 - TS generation expects `spec/TSPARM_spec.csv`. If missing, TS is skipped with a console message.
 
 ## Export XPT (SAS V5 transport)
@@ -65,6 +71,52 @@ usdm-utils define --usdm-file files/pilot_LLZT_protocol.json --out-dir output
 
 This wraps the existing Define generator and writes `define.xml` under `output/`.
 
+## Quick diff examples
+
+Basic text diff (auto color):
+
+```bash
+usdm-utils diff files/pilot_LLZT_protocol.json files/pilot_LLZT_protocol_amendment.json
+```
+
+JSON summary only (machine friendly):
+
+```bash
+usdm-utils diff files/pilot_LLZT_protocol.json files/pilot_LLZT_protocol_amendment.json \
+	--json --summary-only > diff_summary.json
+```
+
+Markdown (for PR description):
+
+```bash
+usdm-utils diff files/pilot_LLZT_protocol.json files/pilot_LLZT_protocol_amendment.json \
+	--markdown --group-summary --group-sort desc > DIFF.md
+```
+
+Filter to specific sections (multi flag) and align lists by id:
+
+```bash
+usdm-utils diff files/pilot_LLZT_protocol.json files/pilot_LLZT_protocol_amendment.json \
+	--section Study --section Design --list-key id --group-summary
+```
+
+Deep path normalization (treated as top-level Study):
+
+```bash
+usdm-utils diff old.json new.json --section /Study/Versions[0]/studyDesigns[0]
+```
+
+### CI snippet (GitHub Actions)
+
+Add a job step to fail if future `--fail-on-change` is implemented (placeholder now returns 0):
+
+```bash
+usdm-utils diff old.json new.json --json > diff.json
+jq '.summary.total' diff.json
+```
+
+You can gate on the value once a non-zero exit mode exists.
+
 ## CLI alternatives (without installing the package)
 
 Use the module path if the `usdm-utils` command is not available:
@@ -85,11 +137,11 @@ Legacy runners under `bin/run_create_*.py` are deprecated and will exit with a m
 ## Troubleshooting
 
 - Command not found: `usdm-utils`
-	- Ensure the package is installed: `pip install -e .` and your venv is activated.
+  - Ensure the package is installed: `pip install -e .` and your venv is activated.
 - TS is skipped
-	- Provide `spec/TSPARM_spec.csv` or remove TS from your run.
+  - Provide `spec/TSPARM_spec.csv` or remove TS from your run.
 - JSON Schema errors
-	- See `*.schema.errors.txt` for detailed paths/messages; fix mappings or adjust input.
+  - See `*.schema.errors.txt` for detailed paths/messages; fix mappings or adjust input.
 
 ## Try it
 

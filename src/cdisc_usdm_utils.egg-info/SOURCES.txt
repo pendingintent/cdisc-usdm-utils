@@ -3,6 +3,8 @@ README.md
 pyproject.toml
 src/cdisc_usdm_utils/__init__.py
 src/cdisc_usdm_utils/cli.py
+src/cdisc_usdm_utils/usdm_diff.py
+src/cdisc_usdm_utils/validation.py
 src/cdisc_usdm_utils.egg-info/PKG-INFO
 src/cdisc_usdm_utils.egg-info/SOURCES.txt
 src/cdisc_usdm_utils.egg-info/dependency_links.txt
