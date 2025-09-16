@@ -71,6 +71,82 @@ usdm-utils define --usdm-file files/pilot_LLZT_protocol.json --out-dir output
 
 This wraps the existing Define generator and writes `define.xml` under `output/`.
 
+## Extract Biomedical Concepts
+
+Flatten biomedical concepts, their properties, response codes, and surrogates into a single CSV (now with filtering, JSON output, and lineage markdown):
+
+```bash
+usdm-utils concepts --usdm-file files/pilot_LLZT_protocol.json --out-file output/biomedical_concepts.csv
+```
+
+CSV / JSON row columns:
+
+- id: Unique identifier of the concept / property / response code / surrogate
+- parent_id: Blank for top-level concepts & surrogates; property rows point to the concept id; response code rows point to the property id
+- name, label: Display attributes if present
+- synonyms: Comma-separated list (only populated for top-level concepts currently)
+- reference: Concept or surrogate reference (blank for response codes)
+- code, decode: Standard code values when available
+- type: Row type (BiomedicalConcept, BiomedicalConceptProperty, ResponseCode, surrogate concept type)
+
+Example head preview with pandas:
+
+```bash
+python - <<'PY'
+import pandas as pd
+df = pd.read_csv('output/biomedical_concepts.csv')
+print(df.head())
+print('Concept rows:', (df.parent_id=='').sum(), 'Total rows:', len(df))
+PY
+```
+
+If you omit --out-file the default path is `output/biomedical_concepts.csv`.
+
+### Advanced options
+
+```
+usdm-utils concepts --usdm-file files/pilot_LLZT_protocol.json \
+	--out-file output/biomedical_concepts.csv \
+	--json-out output/biomedical_concepts.json \
+	--markdown-tree output/biomedical_concepts.md \
+	--filter-name Consent \
+	--filter-reference-prefix /mdr/bc/ \
+	--filter-code-system ncit \
+	--no-response-codes \
+	--no-surrogates
+```
+
+Flags / filters:
+
+- `--include-surrogates/--no-surrogates` (default include): control inclusion of surrogate concepts.
+- `--no-response-codes`: omit response code (enumerated value) rows.
+- `--json-out <path>`: write the flattened rows as JSON array.
+- `--markdown-tree <path or ->`: write a hierarchical lineage tree (use `-` for stdout).
+- `--filter-name <substr>`: case-insensitive substring match on top-level concept name (children only retained if parent matches).
+- `--filter-reference-prefix <prefix>`: only include concepts whose `reference` starts with this.
+- `--filter-code-system <name>`: only include concepts whose standard code `codeSystem` (or `system`) matches (case-insensitive).
+
+Empty filter results produce a header-only CSV, `[]` JSON (when requested), and a markdown file with only the title.
+
+Lineage markdown example (excerpt):
+
+```
+# Biomedical Concepts Lineage
+
+- **Adverse Event Prespecified** *BiomedicalConcept* (code: C179175)
+	- **AEACN** *BiomedicalConceptProperty* (code: C83013)
+	- **AEACNOTH** *BiomedicalConceptProperty* (code: C83109)
+	- **AECONTRT** *BiomedicalConceptProperty* (code: C83199)
+		- **RC_C49487** *ResponseCode* (code: C49487)
+		- **RC_C49488** *ResponseCode* (code: C49488)
+```
+
+You can post-filter, e.g. only properties:
+
+```bash
+awk -F',' 'NR==1 || $2 != ""' output/biomedical_concepts.csv > output/properties_only.csv
+```
+
 ## Quick diff examples
 
 Basic text diff (auto color):
@@ -108,14 +184,158 @@ usdm-utils diff old.json new.json --section /Study/Versions[0]/studyDesigns[0]
 
 ### CI snippet (GitHub Actions)
 
-Add a job step to fail if future `--fail-on-change` is implemented (placeholder now returns 0):
+Fail a CI job when differences are present using `--fail-on-change`:
 
 ```bash
-usdm-utils diff old.json new.json --json > diff.json
-jq '.summary.total' diff.json
+usdm-utils diff old.json new.json --json --fail-on-change > diff.json
+# If changes exist exit code will be 1; summary still captured for inspection.
 ```
 
-You can gate on the value once a non-zero exit mode exists.
+Minimal text gating (field-level):
+
+```bash
+usdm-utils diff old.json new.json --summary-only --fail-on-change
+```
+
+Object-level gating (ignores unchanged field churn):
+
+```bash
+usdm-utils diff old.json new.json --objects-only --summary-only --fail-on-change
+```
+
+Extract counts for PR annotation without failing:
+
+```bash
+usdm-utils diff old.json new.json --objects-only --summary-only --json > obj_summary.json
+jq '.summary' obj_summary.json
+
+The JSON `.summary` object always includes: added, removed, changed, typeMismatches, total.
+### Lightweight standalone comparator (no Click)
+
+For a fast, minimal structural comparison (simple add/remove/change/type with optional list alignment):
+
+```bash
+python bin/json_compare.py old.json new.json
+```
+
+Align lists of objects by a stable key to suppress noisy positional diffs:
+
+```bash
+python bin/json_compare.py old.json new.json --list-key id
+```
+
+Limit the verbosity of large values:
+
+```bash
+python bin/json_compare.py old.json new.json --max-list 10
+```
+
+Machine-readable JSON output:
+
+```bash
+python bin/json_compare.py old.json new.json --json > lightweight_diff.json
+```
+
+Note: This tool intentionally omits grouping, section filters, and object-level aggregation—use `usdm-utils diff` for richer reporting.
+
+### Side-by-side HTML object diff
+
+Generate an HTML report showing each changed object (collapsed at object level) with old vs new JSON side-by-side:
+
+```bash
+usdm-utils diff-html files/pilot_LLZT_amendment_10SEP25.json files/pilot_LLZT_amendment_11SEP25.json \
+	--output output/diff_objects.html --list-key id
+```
+
+Custom object identifier precedence:
+
+```bash
+usdm-utils diff-html old.json new.json --output diff.html --object-id-key uuid --object-id-key code
+```
+
+Open the generated `diff_objects.html` in a browser to inspect changed objects with pretty-printed JSON.
+
+### Deprecated legacy diff script
+
+The earlier standalone normalization script `bin/usdm_diff.py` has been retired. It is now a stub that prints a deprecation message and exits with code 0.
+
+Use the richer CLI commands instead:
+
+```bash
+usdm-utils diff old.json new.json --objects-only            # object-centric summary
+usdm-utils diff-html old.json new.json --output diff.html   # HTML side-by-side
+```
+
+For lightweight structural changes (add/remove/change/type) you can still use:
+
+```bash
+python bin/json_compare.py old.json new.json --json > lightweight_diff.json
+```
+
+Rationale: The CLI supports object grouping, identifier filtering, list alignment, markdown / HTML output, and future extensibility beyond what the legacy script provided.
+
+### Object-level mode and ID filtering
+
+Collapse field-level noise into object additions/removals/changes:
+
+```bash
+usdm-utils diff old.json new.json --objects-only
+```
+
+Provide custom identifier keys if your objects don't use `id`/`ID`:
+
+```bash
+usdm-utils diff old.json new.json --objects-only --object-id-key uuid --object-id-key code
+```
+
+Filter the resulting object set by (substring match, case-insensitive) identifier value(s):
+
+```bash
+# Only show objects whose resolved id contains 'StudyVersion_1'
+usdm-utils diff old.json new.json --objects-only --object-id-filter StudyVersion_1
+
+# Combine multiple filters (logical OR)
+usdm-utils diff old.json new.json \
+	--objects-only \
+	--object-id-filter StudyVersion_1 \
+	--object-id-filter ARM_001
+```
+
+Emit structured JSON with the filtered objects:
+
+```bash
+usdm-utils diff old.json new.json \
+	--objects-only \
+	--object-id-filter StudyVersion_1 \
+	--json > focused_objects.json
+```
+
+The JSON payload adds:
+
+- `mode: "objects"`
+- `idKeys`: identifier key precedence list
+- `idFilters`: (when provided) the applied filter substrings
+
+When a filter yields zero objects you will see a summary line with Total: 0 (filtered by ...). This indicates no changed/added/removed objects matched those identifier substrings (the object itself may simply be unchanged across versions).
+
+### Summary-only mode (objects vs field level)
+
+`--summary-only` suppresses the detailed change list while keeping aggregated counts.
+
+Examples:
+
+```bash
+# Field-level summary
+usdm-utils diff old.json new.json --summary-only
+
+# Object-level summary (collapses field changes per object)
+usdm-utils diff old.json new.json --objects-only --summary-only
+
+# Machine-readable object-level summary
+usdm-utils diff old.json new.json --objects-only --summary-only --json > summary.json
+```
+
+In JSON mode the `changes` array is empty when `--summary-only` is supplied. The `summary.total` value still reflects the number of objects (object mode) or individual field-level change records (field mode).
 
 ## CLI alternatives (without installing the package)
 

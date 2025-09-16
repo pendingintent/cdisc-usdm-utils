@@ -3,6 +3,7 @@ venv/
 .env
 output/
 output_from_main/
+tmp*/
 <<<<<<< HEAD
 .DS_Store
 =======
