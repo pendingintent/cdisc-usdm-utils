@@ -140,8 +140,15 @@ def xpt(domains, csv_dir: str, out_dir: str):
     click.echo("XPT export complete.")
 
 
-@cli.command(help="Extract biomedical concepts (concepts, properties, response codes, surrogates) with filters and multiple formats")
-@click.option("--usdm-file", required=True, type=click.Path(exists=True), help="USDM JSON input file")
+@cli.command(
+    help="Extract biomedical concepts (concepts, properties, response codes, surrogates) with filters and multiple formats"
+)
+@click.option(
+    "--usdm-file",
+    required=True,
+    type=click.Path(exists=True),
+    help="USDM JSON input file",
+)
 @click.option(
     "--out-file",
     default="output/biomedical_concepts.csv",
