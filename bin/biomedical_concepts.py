@@ -19,7 +19,9 @@ def load_usdm(usdm_file: str) -> Dict[str, Any]:
         return json.load(f)
 
 
-def iterate_concepts(version: Dict[str, Any], include_surrogates: bool = True) -> Iterable[Dict[str, Any]]:
+def iterate_concepts(
+    version: Dict[str, Any], include_surrogates: bool = True
+) -> Iterable[Dict[str, Any]]:
     for bc in version.get("biomedicalConcepts", []) or []:
         yield bc
     if include_surrogates:
@@ -157,7 +159,19 @@ def process_usdm_biomedical_concepts_to_csv(
         ).to_csv(out_file, index=False)
         return
     df = pd.DataFrame(rows)
-    df = df[["id", "parent_id", "name", "label", "synonyms", "reference", "code", "decode", "type"]]
+    df = df[
+        [
+            "id",
+            "parent_id",
+            "name",
+            "label",
+            "synonyms",
+            "reference",
+            "code",
+            "decode",
+            "type",
+        ]
+    ]
     df.to_csv(out_file, index=False)
 
 
@@ -199,6 +213,7 @@ def concepts_markdown_tree(rows: List[Dict[str, Any]]) -> str:
     tops.sort(key=lambda x: (x.get("type"), x.get("name")))
 
     lines: List[str] = ["# Biomedical Concepts Lineage", ""]
+
     def emit(node: Dict[str, Any], depth: int = 0):
         indent = "  " * depth
         label = node.get("name") or node.get("id")
@@ -208,6 +223,7 @@ def concepts_markdown_tree(rows: List[Dict[str, Any]]) -> str:
         lines.append(f"{indent}- **{label}** *{t}*{code_part}")
         for ch in children.get(node.get("id"), []):
             emit(ch, depth + 1)
+
     for top in tops:
         emit(top, 0)
     return "\n".join(lines)
