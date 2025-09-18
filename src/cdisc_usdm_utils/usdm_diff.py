@@ -133,7 +133,7 @@ def _diff_list(
 
 def _diff(
     a: Any, b: Any, path: str, list_key: Optional[str], out: List[Dict[str, Any]]
-):  # noqa: C901 (now simplified but keep safeguard)
+):  # noqa: C901 (function remains complex due to recursive diff logic)
     if a is None or b is None:
         # None handled naturally below; only mismatch if types differ and not both None
         if (a is None) ^ (b is None):
