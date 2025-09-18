@@ -1,6 +1,6 @@
 import sys
 import json
-from typing import Any
+from typing import Any, Optional
 import click
 import importlib.util
 from pathlib import Path
@@ -191,13 +191,13 @@ def xpt(domains, csv_dir: str, out_dir: str):
 def concepts(
     usdm_file: str,
     out_file: str,
-    json_out: str | None,
-    markdown_tree: str | None,
+    json_out: Optional[str],
+    markdown_tree: Optional[str],
     include_surrogates: bool,
     no_response_codes: bool,
-    filter_name: str | None,
-    filter_reference_prefix: str | None,
-    filter_code_system: str | None,
+    filter_name: Optional[str],
+    filter_reference_prefix: Optional[str],
+    filter_code_system: Optional[str],
 ):
     """Flatten biomedical concepts hierarchy into tabular and optionally JSON / markdown outputs.
 
@@ -362,15 +362,15 @@ except Exception:
 def diff(
     file1: str,
     file2: str,
-    output: str | None,
+    output: Optional[str],
     as_json: bool,
-    list_key: str | None,
+    list_key: Optional[str],
     summary_only: bool,
     markdown: bool,
     color: str,
     group_summary_flag: bool,
     sections: tuple[str, ...],
-    group_sort: str | None,
+    group_sort: Optional[str],
     objects_only: bool,
     object_id_keys: tuple[str, ...],
     object_id_filters: tuple[str, ...],
@@ -420,7 +420,7 @@ def diff(
             c for c in changes_list if _section_of(c.get("path", "")) in norm_sections
         ]
 
-    def _build_group_summary(changes_list: list[dict], want: bool) -> dict | None:
+    def _build_group_summary(changes_list: list[dict], want: bool) -> Optional[dict]:
         if not want or not group_summary:
             return None
         gs = group_summary(changes_list)  # type: ignore
@@ -430,7 +430,7 @@ def diff(
             gs = {k: v for k, v in items}
         return gs
 
-    def _format_summary_line(s: dict | None) -> str:
+    def _format_summary_line(s: Optional[dict]) -> str:
         if not s:
             return ""
         return (
@@ -542,7 +542,7 @@ def diff(
 
     def _find_object_root(
         path: str, id_keys: list[str], root_a: Any, root_b: Any
-    ) -> str | None:
+    ) -> Optional[str]:
         segs = _split_segments(path)
         # ascend until object dict with id key found in either version
         for i in range(len(segs), 0, -1):
@@ -785,7 +785,7 @@ def diff_html(
     file1: str,
     file2: str,
     output: str,
-    list_key: str | None,
+    list_key: Optional[str],
     object_id_keys: tuple[str, ...],
 ):
     if diff_usdm_json is None:
@@ -838,7 +838,7 @@ def diff_html(
                 return None
         return cur
 
-    def find_object_root(path: str) -> str | None:
+    def find_object_root(path: str) -> Optional[str]:
         segs = split_segments(path)
         for i in range(len(segs), 0, -1):
             cand = segs[:i]

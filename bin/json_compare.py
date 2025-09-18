@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import argparse
 from pathlib import Path
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, Optional
 import sys
 
 DiffRecord = Dict[str, Any]
@@ -33,7 +33,7 @@ def is_scalar(v: Any) -> bool:
 
 
 def diff_values(
-    a: Any, b: Any, path: str, out: List[DiffRecord], list_key: str | None = None
+    a: Any, b: Any, path: str, out: List[DiffRecord], list_key: Optional[str] = None
 ):
     if type(a) != type(b):  # noqa: E721
         out.append(
@@ -68,7 +68,7 @@ def diff_dicts(
     b: Dict[str, Any],
     path: str,
     out: List[DiffRecord],
-    list_key: str | None = None,
+    list_key: Optional[str] = None,
 ):
     a_keys = set(a.keys())
     b_keys = set(b.keys())
@@ -98,7 +98,7 @@ def diff_lists(
     b: List[Any],
     path: str,
     out: List[DiffRecord],
-    list_key: str | None = None,
+    list_key: Optional[str] = None,
 ):
     # If list_key provided and both lists look like list-of-dicts with that key, align by key.
     if list_key and _is_alignable(a, b, list_key):
@@ -185,7 +185,7 @@ def summarize(changes: List[DiffRecord]) -> Dict[str, int]:
     return s
 
 
-def format_text(changes: List[DiffRecord], max_list: int | None) -> str:
+def format_text(changes: List[DiffRecord], max_list: Optional[int]) -> str:
     lines: List[str] = []
     for c in changes:
         op = c["op"]
@@ -204,7 +204,7 @@ def format_text(changes: List[DiffRecord], max_list: int | None) -> str:
     return "\n".join(lines)
 
 
-def _val_repr(v: Any, max_list: int | None) -> str:
+def _val_repr(v: Any, max_list: Optional[int]) -> str:
     if is_scalar(v):
         return json.dumps(v)
     if isinstance(v, list):
