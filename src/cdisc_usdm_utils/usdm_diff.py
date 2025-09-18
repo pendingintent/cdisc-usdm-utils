@@ -193,36 +193,51 @@ def summarize(changes: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def group_summary(changes: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
-    """Group counts by top-level section.
+    """Backward-compatible top-level (depth=1) grouping."""
+    return group_summary_deep(changes, depth=1)
 
-    Top-level section is the first component after the leading slash in path,
-    e.g. /Study/Design/Arms[0]/Name -> Study
-    Paths beginning with '[' (root-level list) are grouped under '__root_list__'.
-    The root path '/' (empty) grouped under '__root__'.
-    Returns mapping section -> counts dict (added, removed, changed, type, total).
+
+def group_summary_deep(
+    changes: List[Dict[str, Any]], depth: int = 1
+) -> Dict[str, Dict[str, int]]:
+    """Group counts by the first N path segments (depth >=1).
+
+    Normalization rules:
+      - Leading slash removed.
+      - Each segment is stripped of any list index portion (e.g. activities[3] -> activities).
+      - Root path ('/' or '') grouped under '__root__'.
+      - Paths beginning with '[' at the root grouped under '__root_list__'.
+    The resulting group key is the dot-joined sequence of normalized segments up to 'depth'.
+    Example (depth=3): /study/versions[0]/studyDesigns[0]/activities[5]/label
+      -> segments: ['study','versions','studyDesigns','activities','label']
+      -> normalized first 3: study.versions.studyDesigns
     """
+    if depth < 1:
+        depth = 1
     section_counts: Dict[str, Dict[str, int]] = {}
     for ch in changes:
-        p = ch.get("path") or "/"
-        if p == "/" or p == "":
+        raw_path = ch.get("path") or "/"
+        if raw_path in ("/", ""):
             section = "__root__"
         else:
-            # strip leading slash
-            if p.startswith("/"):
-                p2 = p[1:]
-            else:
-                p2 = p
-            # if path starts with '[' treat separately
-            if p2.startswith("["):
+            p = raw_path[1:] if raw_path.startswith("/") else raw_path
+            if p.startswith("["):
                 section = "__root_list__"
             else:
-                section = p2.split("/", 1)[0]
+                parts = [seg for seg in p.split("/") if seg]
+                norm_parts: List[str] = []
+                for seg in parts:
+                    base = seg.split("[", 1)[0]  # strip list index
+                    if base:
+                        norm_parts.append(base)
+                    if len(norm_parts) >= depth:
+                        break
+                section = ".".join(norm_parts[:depth]) if norm_parts else "__root__"
         sc = section_counts.setdefault(
             section, {"add": 0, "remove": 0, "change": 0, "type": 0, "total": 0}
         )
         sc[ch["op"]] += 1
         sc["total"] += 1
-    # post-process to standard names
     result: Dict[str, Dict[str, int]] = {}
     for section, c in sorted(section_counts.items()):
         result[section] = {
@@ -297,5 +312,6 @@ __all__ = [
     "format_markdown",
     "summarize",
     "group_summary",
+    "group_summary_deep",
     "colorize_text",
 ]

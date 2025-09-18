@@ -180,6 +180,49 @@ Deep path normalization (treated as top-level Study):
 
 ```bash
 usdm-utils diff old.json new.json --section /Study/Versions[0]/studyDesigns[0]
+
+#### Deeper grouped summaries (`--group-depth`)
+
+You can expand grouped change aggregation beyond the top-level segment using `--group-depth N` (default 1). The grouping logic:
+
+- Splits each change path into segments (removing the leading `/`).
+- Strips list indexes (e.g. `activities[3]` -> `activities`).
+- Takes the first N normalized segments and joins them with `.`.
+- Root path becomes `__root__`; a path starting with `[` at root becomes `__root_list__`.
+
+Example (depth 3):
+
+```
+usdm-utils diff files/pilot_LLZT_amendment_10SEP25.json files/pilot_LLZT_amendment_11SEP25.json \
+	--group-summary --group-depth 3 --summary-only
+```
+
+Sample output excerpt:
+
+```
+Added: 4  Removed: 0  Changed: 4686  Type Mismatch: 0  Total: 4690
+Group Summary:
+	study.versions.biomedicalConcepts: +0 -0 ~4345 !0 (total 4345)
+	study.versions.studyDesigns: +2 -0 ~180 !0 (total 182)
+	study.versions.bcSurrogates: +1 -0 ~100 !0 (total 101)
+	study.versions.studyInterventions: +0 -0 ~26 !0 (total 26)
+	study.versions.amendments: +1 -0 ~16 !0 (total 17)
+	...
+```
+
+Notes:
+
+- `--summary-only` now still shows the group breakdown (previously it suppressed group detail).
+- Use `--group-sort desc` to list the most volatile groups first.
+- Increase depth (e.g. 4 or 5) to zoom further into complex areas like `study.versions.studyDesigns.activities` or `scheduleTimelines`.
+- Combine with `--json` to get a machine-readable `groupSummary` object (the `changes` array is omitted when `--summary-only` is present):
+
+```
+usdm-utils diff old.json new.json --json --group-summary --group-depth 4 --summary-only > grouped.json
+jq '.groupSummary' grouped.json
+```
+
+If a particular subtree dominates (e.g. thousands of biomedical concept code/value changes), raise depth to isolate which part is most active or apply `--path-filter` to narrow the analysis.
 ```
 
 ### CI snippet (GitHub Actions)

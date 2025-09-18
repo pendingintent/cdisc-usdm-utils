@@ -273,6 +273,7 @@ try:
         format_markdown,
         summarize,
         group_summary,
+        group_summary_deep,
         colorize_text,
     )
 except Exception:
@@ -318,6 +319,13 @@ except Exception:
     "group_summary_flag",
     is_flag=True,
     help="Include grouping of counts by top-level section.",
+)
+@click.option(
+    "--group-depth",
+    type=click.IntRange(1, 10),
+    default=1,
+    show_default=True,
+    help="Number of path segments (after root) to use when grouping (strips list indexes).",
 )
 @click.option(
     "--section",
@@ -369,6 +377,7 @@ def diff(
     markdown: bool,
     color: str,
     group_summary_flag: bool,
+    group_depth: int,
     sections: tuple[str, ...],
     group_sort: Optional[str],
     objects_only: bool,
@@ -423,7 +432,13 @@ def diff(
     def _build_group_summary(changes_list: list[dict], want: bool) -> Optional[dict]:
         if not want or not group_summary:
             return None
-        gs = group_summary(changes_list)  # type: ignore
+        if group_depth > 1 and "group_summary_deep" in globals():  # type: ignore
+            try:
+                gs = group_summary_deep(changes_list, depth=group_depth)  # type: ignore
+            except Exception:
+                gs = group_summary(changes_list)  # type: ignore
+        else:
+            gs = group_summary(changes_list)  # type: ignore
         if group_sort and gs:
             rev = group_sort == "desc"
             items = sorted(gs.items(), key=lambda kv: kv[1]["total"], reverse=rev)
@@ -709,10 +724,18 @@ def diff(
     else:
         if summary_only:
             if objects_only:
-                # summary-only in objects mode already built into first line of text_report
                 out_text = text_report.splitlines()[0] if text_report else ""
             else:
-                out_text = _format_summary_line(summ)
+                base_line = _format_summary_line(summ)
+                if group_summ:
+                    lines = [base_line, "Group Summary:"]
+                    for sec, cs in group_summ.items():
+                        lines.append(
+                            f"  {sec}: +{cs['added']} -{cs['removed']} ~{cs['changed']} !{cs['typeMismatches']} (total {cs['total']})"
+                        )
+                    out_text = "\n".join(lines)
+                else:
+                    out_text = base_line
         elif markdown:
             base_md = format_markdown(changes) if format_markdown else text_report
             out_text = (
