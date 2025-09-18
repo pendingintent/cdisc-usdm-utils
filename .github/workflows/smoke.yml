@@ -80,6 +80,13 @@ jobs:
     name: USDM Diff Report
     runs-on: ubuntu-latest
     needs: smoke
+    # Ensure only one Pages deployment runs at a time per ref to avoid race conditions
+    concurrency:
+      group: pages-${{ github.ref }}
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -148,15 +155,11 @@ jobs:
         with:
           path: site
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages (auto preview for PRs)
         id: deploy
         uses: actions/deploy-pages@v4
-        if: ${{ github.event_name != 'pull_request' }}
-
-      - name: Deploy to GitHub Pages (PR preview)
-        id: deploy_pr
-        uses: actions/deploy-pages@v4
-        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          preview: ${{ github.event_name == 'pull_request' }}
 
       - name: Upload diff artifacts
         if: always()
@@ -180,8 +183,7 @@ jobs:
               try { summaryData = JSON.parse(fs.readFileSync(path,'utf8')); } catch(e) { core.warning('Could not parse summary.json'); }
             }
             const s = summaryData.summary || {};
-            // Pages preview URL is exposed via deployment outputs (see docs); fallback to standard pattern
-            const pagesUrl = process.env.GITHUB_PAGES_URL || `https://${process.env.GITHUB_REPOSITORY_OWNER}.github.io/${process.env.GITHUB_REPOSITORY.split('/')[1]}`;
+            const pagesUrl = process.env.DEPLOYMENT_PAGE_URL || process.env.GITHUB_PAGES_URL || process.env.PAGE_URL || `https://${process.env.GITHUB_REPOSITORY_OWNER}.github.io/${process.env.GITHUB_REPOSITORY.split('/')[1]}`;
             const body = [
               '### USDM Diff Summary',
               '',
@@ -189,7 +191,7 @@ jobs:
               '',
               `Live HTML diff: ${pagesUrl}`,
               '',
-              'Artifacts: download workflow artifact `usdm-diff-artifacts` (contains raw JSON & HTML).'
+              'Artifacts: download workflow artifact `usdm-diff-artifacts` (raw JSON & HTML).'
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
