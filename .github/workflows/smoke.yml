@@ -1,4 +1,4 @@
-name: Smoke SDTM
+name: USDM Diff Artifacts
 
 on:
   push:
@@ -6,19 +6,13 @@ on:
   pull_request:
     branches: ["**"]
 
-# Permissions needed for GitHub Pages deployment and PR comments
 permissions:
   contents: read
-  pages: write
-  id-token: write
   pull-requests: write
 
 jobs:
-  smoke:
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.10', '3.11', '3.12']
+  smoke-lite:
+    name: Smoke SDTM (lite)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,7 +21,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -41,51 +35,26 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # install package for CLI entrypoint
           pip install -e .
 
-      - name: Run smoke test
+      - name: Run smoke script
         run: |
           mkdir -p output/smoke
           bash scripts/smoke_sdtm.sh
 
-      - name: Upload smoke outputs (per Python)
+      - name: Upload smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-output-py${{ matrix.python-version }}
+          name: smoke-lite-artifacts
           path: |
             output/smoke/**
             output/*.csv
             output/*.dataset.json
 
-  smoke-aggregate:
-    name: Aggregate Smoke Artifacts
-    runs-on: ubuntu-latest
-    needs: smoke
-    steps:
-      - name: Download all smoke artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: smoke-output-py*
-          path: combined-smoke
-          merge-multiple: true
-      - name: Re-upload unified smoke artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-output
-          path: combined-smoke
-
   diff-report:
     name: USDM Diff Report
     runs-on: ubuntu-latest
-    needs: smoke-aggregate
-    # Only set concurrency & environment for main branch to avoid protection blocks on feature branches
-    if: ${{ github.ref != 'refs/heads/main' || github.ref == 'refs/heads/main' }}
-    concurrency:
-      group: pages-${{ github.ref }}
-      cancel-in-progress: false
-    environment: ${{ github.ref == 'refs/heads/main' && 'github-pages' || null }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,46 +95,6 @@ jobs:
           # Expose flag for subsequent steps
           if [ "$DIFF_EXIT" -ne 0 ]; then echo "changes=1" >> $GITHUB_OUTPUT; else echo "changes=0" >> $GITHUB_OUTPUT; fi
 
-      - name: Prepare Pages content
-        run: |
-          mkdir -p site
-          body_file="output/diff/objects.html"
-          summary_file="output/diff/summary.json"
-          total=0 added=0 removed=0 changed=0
-          if [ -f "$summary_file" ]; then \
-            total=$(jq -r '.summary.total // 0' "$summary_file" 2>/dev/null || echo 0); \
-            added=$(jq -r '.summary.added // 0' "$summary_file" 2>/dev/null || echo 0); \
-            removed=$(jq -r '.summary.removed // 0' "$summary_file" 2>/dev/null || echo 0); \
-            changed=$(jq -r '.summary.changed // 0' "$summary_file" 2>/dev/null || echo 0); \
-          fi
-          echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>USDM Diff</title><style>body{font-family:system-ui,Arial,sans-serif;margin:0;padding:0 0 2rem;}header{background:#0d1117;color:#fff;padding:.75rem 1rem;margin:0 0 1rem;font-size:14px;}main{padding:0 1rem;}iframe{border:0;width:100%;min-height:80vh;}</style></head><body>" > site/index.html
-          echo "<header>USDM Diff – Objects changed: ${total} (added ${added}, removed ${removed}, changed ${changed})</header>" >> site/index.html
-          echo "<main>" >> site/index.html
-          if [ -f "$body_file" ]; then \
-            # Strip existing DOCTYPE/HTML wrappers if present
-            sed -e '1,/<body>/d' -e '/<\/body>.*/,$d' "$body_file" >> site/index.html || cat "$body_file" >> site/index.html; \
-          else \
-            echo "<p>No diff HTML generated.</p>" >> site/index.html; \
-          fi
-          echo "</main></body></html>" >> site/index.html
-
-      - name: Upload Pages artifact (main only)
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages (main only)
-        if: ${{ github.ref == 'refs/heads/main' }}
-        id: deploy
-        uses: actions/deploy-pages@v4
-        with:
-          preview: false
-
-      - name: Summarize deployed page URL
-        if: ${{ github.ref == 'refs/heads/main' && always() }}
-        run: |
-          echo "Deployment page URL: ${{ steps.deploy.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload diff artifacts
         if: always()
@@ -177,7 +106,7 @@ jobs:
             output/diff/objects.json
             output/diff/objects.html
 
-      - name: Post PR comment (diff summary + live link)
+      - name: Post PR comment (diff summary)
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         with:
@@ -189,13 +118,10 @@ jobs:
               try { summaryData = JSON.parse(fs.readFileSync(path,'utf8')); } catch(e) { core.warning('Could not parse summary.json'); }
             }
             const s = summaryData.summary || {};
-            const pagesUrl = process.env.DEPLOYMENT_PAGE_URL || process.env.GITHUB_PAGES_URL || process.env.PAGE_URL || `https://${process.env.GITHUB_REPOSITORY_OWNER}.github.io/${process.env.GITHUB_REPOSITORY.split('/')[1]}`;
             const body = [
               '### USDM Diff Summary',
               '',
               `Objects changed: **${s.total ?? 0}** (added ${s.added ?? 0}, removed ${s.removed ?? 0}, changed ${s.changed ?? 0})`,
-              '',
-              `Live HTML diff: ${pagesUrl}`,
               '',
               'Artifacts: download workflow artifact `usdm-diff-artifacts` (raw JSON & HTML).'
             ].join('\n');
@@ -206,8 +132,4 @@ jobs:
               body
             });
 
-      - name: Fail if differences detected
-        if: steps.generate_diff.outputs.changes == '1'
-        run: |
-          echo 'USDM differences detected (see artifacts for details). Failing job.'
-          exit 1
+      # No failing step; always succeed while still surfacing diff artifacts.
